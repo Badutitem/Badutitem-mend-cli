@@ -682,6 +682,7 @@ function v4aEdits(lines: string[], strict: boolean): Edit[] {
         idx = 1;
       }
       let chunk: VChunk | null = null;
+      let eofEnded = false;
       for (; idx < raw.length; idx += 1) {
         const r = raw[idx]!;
         const l = r.t;
@@ -689,6 +690,7 @@ function v4aEdits(lines: string[], strict: boolean): Edit[] {
           const anchor = l.slice(2).trim();
           chunk = { anchor: anchor === '' ? null : anchor, eof: false, body: [] };
           sec.chunks.push(chunk);
+          eofEnded = false;
         } else if (l.trimEnd() === '*** End of File') {
           if (chunk === null) {
             chunk = { anchor: null, eof: true, body: [] };
@@ -696,7 +698,11 @@ function v4aEdits(lines: string[], strict: boolean): Edit[] {
           } else {
             chunk.eof = true;
           }
+          eofEnded = true;
         } else if (l === '' || l.startsWith(' ') || l.startsWith('-') || l.startsWith('+')) {
+          // '*** End of File' ends its chunk (section 8), and only the first chunk of a
+          // section may start at a body line, so a body line here is a parse error.
+          if (eofEnded) throw new Exit2(`error: parse ${r.n}`);
           if (chunk === null) {
             chunk = { anchor: null, eof: false, body: [] };
             sec.chunks.push(chunk);
